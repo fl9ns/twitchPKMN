@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TWITCH PKMN
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  PKMN
 // @author       FL9NS
 // @match        https://www.twitch.tv/*
@@ -17,6 +17,7 @@
         charmander: { color: "#D2691E", badge: "charmander" },
         bulbasaur: { color: "#2E8B57", badge: "bulbasaur" },
         squirtle: { color: "#1E90FF", badge: "squirtle" },
+        gastly: { color: "#8A2BE2", badge: "gastly" },
     };
 
     let currentComboId = null;
