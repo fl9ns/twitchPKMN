@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TWITCH PKMN
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  PKMN
 // @author       FL9NS
 // @match        https://www.twitch.tv/*
@@ -18,6 +18,8 @@
         bulbasaur: { color: "#2E8B57", badge: "bulbasaur" },
         squirtle: { color: "#1E90FF", badge: "squirtle" },
         gastly: { color: "#8A2BE2", badge: "gastly" },
+        haunter: { color: "#8A2BE2", badge: "haunter" },
+        gengar: { color: "#8A2BE2", badge: "gengar" }
     };
 
     let currentComboId = null;
@@ -26,7 +28,7 @@
     let savedIntegrity = null;
 
     let lastComboChangeTime = 0;
-    const COOLDOWN_MS = 3000;
+    const COOLDOWN_MS = 1000;
 
     async function updateTwitchProfile(comboId) {
         if (!savedAuth || !savedClientId || !savedIntegrity) {
@@ -73,7 +75,13 @@
         }
 
         const allCombos = Object.keys(combos);
-        const availableCombos = allCombos.filter(id => id !== currentComboId);
+
+        // Exclut le combo actuel pour éviter d'appliquer deux fois d'affilée le même
+        const availableCombos = currentComboId
+            ? allCombos.filter(id => id !== currentComboId)
+            : allCombos;
+
+        if (availableCombos.length === 0) return;
 
         const randomIndex = Math.floor(Math.random() * availableCombos.length);
         const nextComboId = availableCombos[randomIndex];
