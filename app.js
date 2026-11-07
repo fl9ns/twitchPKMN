@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TWITCH PKMN
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  PKMN
 // @author       FL9NS
 // @match        https://www.twitch.tv/*
@@ -14,25 +14,39 @@
 
     const combos = {
         pichu: { color: "#DAA520", badge: "pichu" },
+        pikachu: { color: "#DAA520", badge: "pikachu" },
+
         charmander: { color: "#D2691E", badge: "charmander" },
+        charmeleon: { color: "#D2691E", badge: "charmeleon" },
+        charizard: { color: "#D2691E", badge: "charizard" },
+
         bulbasaur: { color: "#2E8B57", badge: "bulbasaur" },
+        ivysaur: { color: "#2E8B57", badge: "ivysaur" },
+        venusaur: { color: "#2E8B57", badge: "venusaur" },
+
         squirtle: { color: "#1E90FF", badge: "squirtle" },
+        wartortle: { color: "#1E90FF", badge: "wartortle" },
+        blastoise: { color: "#1E90FF", badge: "blastoise" },
+
         gastly: { color: "#8A2BE2", badge: "gastly" },
         haunter: { color: "#8A2BE2", badge: "haunter" },
         gengar: { color: "#8A2BE2", badge: "gengar" }
     };
 
     let currentComboId = null;
+    let lastUsedColor = null;
+    const lastBadgeByColor = {};
+
     let savedAuth = null;
     let savedClientId = null;
     let savedIntegrity = null;
 
     let lastComboChangeTime = 0;
-    const COOLDOWN_MS = 1000;
+    const COOLDOWN_MS = 5000;
 
-    async function updateTwitchProfile(comboId) {
+    function updateTwitchProfile(comboId) {
         if (!savedAuth || !savedClientId || !savedIntegrity) {
-            console.warn("[PKMN] Impossible de changer de combo : jetons manquants. (Envoie un message ou actualise)");
+            console.warn("[PKMN] Impossible de changer de combo : jetons manquants.");
             return;
         }
 
@@ -59,41 +73,58 @@
             'Content-Type': 'text/plain;charset=UTF-8'
         };
 
-        try {
-            await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
-            console.log(`[PKMN] Combo changé pour : ${comboId.toUpperCase()}`);
-        } catch (err) {
-            console.error("[PKMN] Erreur lors de la mise à jour :", err);
-        }
+        fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(payload) })
+            .then(function() {
+                console.log("[PKMN] Combo changé pour : " + comboId.toUpperCase() + " (Couleur: " + combo.color + ", Badge: " + combo.badge + ")");
+            })
+            .catch(function(err) {
+                console.error("[PKMN] Erreur lors de la mise à jour :", err);
+            });
     }
 
     function triggerRandomCombo() {
         const now = Date.now();
         if (now - lastComboChangeTime < COOLDOWN_MS) {
-            console.log(`[PKMN] Cooldown actif (${Math.ceil((COOLDOWN_MS - (now - lastComboChangeTime)) / 1000)}s restantes)`);
+            console.log("[PKMN] Cooldown actif (" + Math.ceil((COOLDOWN_MS - (now - lastComboChangeTime)) / 1000) + "s restantes)");
             return;
         }
 
-        const allCombos = Object.keys(combos);
+        const allComboKeys = Object.keys(combos);
 
-        // Exclut le combo actuel pour éviter d'appliquer deux fois d'affilée le même
-        const availableCombos = currentComboId
-            ? allCombos.filter(id => id !== currentComboId)
-            : allCombos;
+        const availableCombos = allComboKeys.filter(function(key) {
+            const combo = combos[key];
+
+            if (lastUsedColor && combo.color === lastUsedColor) {
+                return false;
+            }
+
+            const previousBadgeForThisColor = lastBadgeByColor[combo.color];
+            if (previousBadgeForThisColor && combo.badge === previousBadgeForThisColor) {
+                return false;
+            }
+
+            return true;
+        });
 
         if (availableCombos.length === 0) return;
 
         const randomIndex = Math.floor(Math.random() * availableCombos.length);
         const nextComboId = availableCombos[randomIndex];
+        const selectedCombo = combos[nextComboId];
 
         lastComboChangeTime = now;
         currentComboId = nextComboId;
+        lastUsedColor = selectedCombo.color;
+        lastBadgeByColor[selectedCombo.color] = selectedCombo.badge;
+
         updateTwitchProfile(nextComboId);
     }
 
     const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const [url, options] = args;
+    window.fetch = function() {
+        const args = arguments;
+        const url = args[0];
+        const options = args[1];
 
         if (typeof url === 'string' && url.includes('gql.twitch.tv') && options && options.headers) {
             const headers = new Headers(options.headers);
@@ -137,22 +168,23 @@
             return;
         }
 
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
+        const observer = new MutationObserver(function(mutations) {
+            for (let i = 0; i < mutations.length; i++) {
+                const mutation = mutations[i];
                 if (mutation.type === 'childList') {
-                    for (const node of mutation.addedNodes) {
-                        handleNewNode(node, myUsername);
+                    for (let j = 0; j < mutation.addedNodes.length; j++) {
+                        handleNewNode(mutation.addedNodes[j], myUsername);
                     }
                 }
             }
         });
 
-        const findChatInterval = setInterval(() => {
+        const findChatInterval = setInterval(function() {
             const chatContainer = document.querySelector('.chat-scrollable-area__message-container');
             if (chatContainer) {
                 clearInterval(findChatInterval);
                 observer.observe(chatContainer, { childList: true });
-                console.log(`[PKMN] Observateur de tchat activé pour le joueur : ${myUsername}`);
+                console.log("[PKMN] Observateur activé pour : " + myUsername);
             }
         }, 1000);
     }
